@@ -84,7 +84,7 @@ def ingest_raw_article_metadata_to_gcs():
     YEAR = 2019
     MONTH_NUM = 1
     VERSION = 1
-    BUCKET_NAME = "raw_article"
+    BUCKET_NAME = "raw_article_metadata"
 
     data = request_archive_api(
         year=YEAR, month_num=MONTH_NUM, api_key=api_key, version=VERSION
