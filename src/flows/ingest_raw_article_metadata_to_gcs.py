@@ -62,19 +62,18 @@ def compress_file():
     name="Store article metadata as JSONL",
     description="Store data in New line delimited JSON file (JSONL)",
 )
-def store_data_as_jsonl(data: list[dict], year: int, month_num: int):
+def write_data_to_local_jsonl(
+    data: list[dict], destination_directory: pathlib.Path, year: int, month_num: int
+):
     logger = get_run_logger()
 
-    root_dir = pathlib.Path.cwd()
-    temp_dir = root_dir / "temp"
+    logger.info(f"Creating directory '{destination_directory}' if it doesn't exist yet")
+    destination_directory.mkdir(exist_ok=True)
 
-    logger.info(f"Creating directory '{temp_dir}' if it doesn't exist yet")
-    temp_dir.mkdir(exist_ok=True)
+    if destination_directory.is_dir():
+        logger.info(f"Directory '{destination_directory}' exists")
 
-    if temp_dir.is_dir():
-        logger.info(f"Directory '{temp_dir}' exists")
-
-        file_path = temp_dir / f"article_metadata_{year}_{month_num}.json"
+        file_path = destination_directory / f"article_metadata_{year}_{month_num}.json"
         convert_to_jsonl(data=data, file_path=file_path)
 
         if file_path.exists():
@@ -88,12 +87,12 @@ def store_data_as_jsonl(data: list[dict], year: int, month_num: int):
     description="Upload monthly article metadata data to Google Cloud / Blob Storage",
 )
 def upload_to_blob_storage(
-    bucket_name: str, directory: pathlib.Path, year: int, month_num: int
+    bucket_name: str, source_directory: pathlib.Path, year: int, month_num: int
 ):
     logger = get_run_logger()
 
     file_name = f"article_metadata_{year}_{month_num}.json"
-    source_file_name = directory / file_name
+    source_file_name = source_directory / file_name
     destination_blob_name = file_name
 
     upload_blob_from_file(
@@ -113,25 +112,22 @@ def upload_to_blob_storage(
     name="Cleanup temp directory",
     description="Delete temp directory and all files in it",
 )
-def rmtree():
+def rmtree(directory: pathlib.Path):
     logger = get_run_logger()
 
-    root_dir = pathlib.Path.cwd()
-    temp_dir = root_dir / "temp"
-
-    if temp_dir.is_dir():
+    if directory.is_dir():
         logger.info(
-            f"Starting to remove files in directory '{temp_dir}' and the directory itself"
+            f"Starting to remove files in directory '{directory}' and the directory itself"
         )
-        for child in temp_dir.iterdir():
+        for child in directory.iterdir():
             if child.is_file():
                 child.unlink()
             else:
                 rmtree(child)
-        temp_dir.rmdir()
+        directory.rmdir()
 
-        if not temp_dir.is_dir():
-            logger.info(f"Directory '{temp_dir}' doesn't exist anymore")
+        if not directory.is_dir():
+            logger.info(f"Directory '{directory}' doesn't exist anymore")
 
 
 @flow
@@ -142,23 +138,30 @@ def ingest_raw_article_metadata_to_gcs():
     VERSION = 1
     BUCKET_NAME = "raw_article_metadata"
 
+    directory = pathlib.Path.cwd() / "temp"
+
     try:
         data = request_archive_api(
             year=YEAR, month_num=MONTH_NUM, api_key=api_key, version=VERSION
         )
-        store_data_as_jsonl(data=data, year=YEAR, month_num=MONTH_NUM)
 
-        temp_directory = pathlib.Path.cwd() / "temp"
+        directory = pathlib.Path.cwd() / "temp"
+        write_data_to_local_jsonl(
+            data=data,
+            year=YEAR,
+            destination_directory=directory,
+            month_num=MONTH_NUM,
+        )
 
         upload_to_blob_storage(
             bucket_name=BUCKET_NAME,
-            directory=temp_directory,
+            source_directory=directory,
             year=YEAR,
             month_num=MONTH_NUM,
         )
     except Exception as e:
         print(f"An exception occured: {e}")
-        rmtree()
+        rmtree(directory)
 
 
 if __name__ == "__main__":
