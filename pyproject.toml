@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "ny-times-articles"
+version = "0.1.0"
+description = ""
+authors = ["Marc-Philipp Esser <m-esser@mail.de>"]
+readme = "README.md"
+packages = [{include = "ny_times_articles"}]
+
+[tool.poetry.dependencies]
+python = ">=3.9, <3.11"
+requests = "^2.31.0"
+prefect = "^2.10.15"
+pandas = ">=1.4.0,<2"
+ydata-profiling = "^4.2.0"
+prefect-gcp = "^0.4.3"
+
+[tool.poetry.group.dev.dependencies]
+black = "^23.3.0"
+flake8 = "^6.0.0"
+pre-commit = "^3.3.3"
+python-dotenv = "^1.0.0"
+ipykernel = "^6.23.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
