@@ -17,14 +17,21 @@ client = storage.Client(project=project_id)
 
 # Create Bucket for raw data
 gcs_bucket = client.create_bucket(
-    bucket_or_name="raw_article_metadata",
+    bucket_or_name="raw_article_data",
     # https://cloud.google.com/storage/docs/locations#location_recommendations
     location="eu",  # Multiregion
 )
 
-# Create Data Profile Bucket for stage data
+# Create Bucket for interim data (= structured data)
 gcs_bucket = client.create_bucket(
-    bucket_or_name="stage_article_profile_metadata",
+    bucket_or_name="interim_article_data",
+    # https://cloud.google.com/storage/docs/locations#location_recommendations
+    location="eu",  # Multiregion
+)
+
+# Create Data Profile Bucket for interim data (= structured data)
+gcs_bucket = client.create_bucket(
+    bucket_or_name="interim_article_data_profile",
     # https://cloud.google.com/storage/docs/locations#location_recommendations
     location="eu",  # Multiregion
 )
