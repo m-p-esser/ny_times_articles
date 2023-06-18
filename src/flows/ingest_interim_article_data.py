@@ -1,13 +1,10 @@
-""" Google Cloud Storage JSONL to Google Cloud Storage Parquet to Bigquery """
+""" Google Cloud Storage JSONL to Google Cloud Storage Parquet """
 
 import io
 import pathlib
 
-import pandas as pd
 import pyarrow
-import pyarrow.parquet as pq
 from prefect import flow, get_run_logger, task
-from prefect.blocks.system import Secret
 from pyarrow import json
 
 from src.config import IngestInterimArticleDataParam
@@ -19,7 +16,6 @@ from src.utils import profile_data, rmtree
 @task(
     retries=0,
     retry_delay_seconds=3,
-    name="Download raw article data from Google Cloud Storage as JSONL",
 )
 def download_raw_article_data_to_local_jsonl(
     bucket_name: str, destination_directory: pathlib.Path, year: int, month_num: int
@@ -49,7 +45,6 @@ def download_raw_article_data_to_local_jsonl(
 @task(
     retries=0,
     retry_delay_seconds=3,
-    name="Convert article data JSONL file to pyarrow table",
 )
 def convert_local_jsonl_to_pyarrow_table(
     source_directory: pathlib.Path, year: int, month_num: int
@@ -69,7 +64,6 @@ def convert_local_jsonl_to_pyarrow_table(
 @task(
     retries=0,
     retry_delay_seconds=3,
-    name="Profile interim article data",
 )
 def profile_interim_article_data(
     table: pyarrow.Table, source_directory: pathlib.Path, year: int, month_num: int
@@ -88,7 +82,6 @@ def profile_interim_article_data(
 @task(
     retries=3,
     retry_delay_seconds=3,
-    name="Upload interim article data profile as HTML file to GCS",
 )
 def upload_interim_article_data_profile(
     destination_bucket_name: str,
@@ -116,7 +109,6 @@ def upload_interim_article_data_profile(
 @task(
     retries=3,
     retry_delay_seconds=3,
-    name="Upload interim article data as Parquet file to GCS",
 )
 def upload_interim_article_data_to_blob_storage(
     bucket_name: str, table: pyarrow.Table, year: int, month_num: int
@@ -142,7 +134,6 @@ def upload_interim_article_data_to_blob_storage(
 @task(
     retries=3,
     retry_delay_seconds=3,
-    name="Delete temp directory and all files in it",
 )
 def delete_local_temp_directory_and_files(directory: pathlib.Path):
     logger = get_run_logger()
@@ -160,44 +151,39 @@ def delete_local_temp_directory_and_files(directory: pathlib.Path):
 
 @flow
 def ingest_interim_article_data(params: IngestInterimArticleDataParam):
-    params = IngestInterimArticleDataParam()
-    year = params.year
-    month_num = params.month_num
-    raw_bucket_name = params.raw_data_bucket_name
-    interim_data_bucket_name = params.interim_data_bucket_name
-    interim_data_profile_bucket_name = params.interim_data_profile_bucket_name
-    is_manual_ingestion = params.is_manual_ingestion
-
     directory = pathlib.Path.cwd() / "temp"
 
     download_raw_article_data_to_local_jsonl(
-        bucket_name=raw_bucket_name,
+        bucket_name=params.raw_bucket_name,
         destination_directory=directory,
-        year=year,
-        month_num=month_num,
+        year=params.year,
+        month_num=params.month_num,
     )
 
     table = convert_local_jsonl_to_pyarrow_table(
-        source_directory=directory, year=year, month_num=month_num
+        source_directory=directory, year=params.year, month_num=params.month_num
     )
 
-    if is_manual_ingestion:
+    if params.is_manual_ingestion:
         profile_interim_article_data(
-            table=table, source_directory=directory, year=year, month_num=month_num
+            table=table,
+            source_directory=directory,
+            year=params.year,
+            month_num=params.month_num,
         )
 
         upload_interim_article_data_profile(
-            destination_bucket_name=interim_data_profile_bucket_name,
+            destination_bucket_name=params.interim_data_profile_bucket_name,
             source_directory=directory,
-            year=year,
-            month_num=month_num,
+            year=params.year,
+            month_num=params.month_num,
         )
 
     upload_interim_article_data_to_blob_storage(
-        bucket_name=interim_data_bucket_name,
+        bucket_name=params.interim_data_bucket_name,
         table=table,
-        year=year,
-        month_num=month_num,
+        year=params.year,
+        month_num=params.month_num,
     )
 
     delete_local_temp_directory_and_files(directory=directory)
