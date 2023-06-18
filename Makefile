@@ -54,13 +54,17 @@ create_service_account:
 	@echo "Create new Service account"
 	gcloud iam service-accounts create $(CLOUDSDK_SERVICE_ACCOUNT)
 
+
+member := serviceAccount:$(CLOUDSDK_SERVICE_ACCOUNT)@$(CLOUDSDK_CORE_PROJECT).iam.gserviceaccount.com
+
 bind_iam_policies:
 	@echo "Bind IAM Policies to Service account $(CLOUDSDK_SERVICE_ACCOUNT)"
-	gcloud projects add-iam-policy-binding $(CLOUDSDK_CORE_PROJECT) --member=$(MEMBER) --role="roles/run.admin"
-	gcloud projects add-iam-policy-binding $(CLOUDSDK_CORE_PROJECT) --member=$(MEMBER) --role="roles/compute.instanceAdmin.v1"
-	gcloud projects add-iam-policy-binding $(CLOUDSDK_CORE_PROJECT) --member=$(MEMBER) --role="roles/artifactregistry.admin"
-	gcloud projects add-iam-policy-binding $(CLOUDSDK_CORE_PROJECT) --member=$(MEMBER) --role="roles/iam.serviceAccountUser"
-	gcloud projects add-iam-policy-binding $(CLOUDSDK_CORE_PROJECT) --member=$(MEMBER) --role="roles/storage.objectAdmin"
+	gcloud projects add-iam-policy-binding $(CLOUDSDK_CORE_PROJECT) --member=$(member) --role="roles/run.admin"
+	gcloud projects add-iam-policy-binding $(CLOUDSDK_CORE_PROJECT) --member=$(member) --role="roles/compute.instanceAdmin.v1"
+	gcloud projects add-iam-policy-binding $(CLOUDSDK_CORE_PROJECT) --member=$(member) --role="roles/artifactregistry.admin"
+	gcloud projects add-iam-policy-binding $(CLOUDSDK_CORE_PROJECT) --member=$(member) --role="roles/iam.serviceAccountUser"
+	gcloud projects add-iam-policy-binding $(CLOUDSDK_CORE_PROJECT) --member=$(member) --role="roles/storage.objectAdmin"
+	gcloud projects add-iam-policy-binding $(CLOUDSDK_CORE_PROJECT) --member=$(member) --role="roles/bigquery.admin"
 
 create_key_file:
 	gcloud iam service-accounts keys create credentials/prefect_service_account.json \
