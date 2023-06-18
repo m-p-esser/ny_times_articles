@@ -154,7 +154,7 @@ def ingest_interim_article_data(params: IngestInterimArticleDataParam):
     directory = pathlib.Path.cwd() / "temp"
 
     download_raw_article_data_to_local_jsonl(
-        bucket_name=params.raw_bucket_name,
+        bucket_name=params.raw_data_bucket_name,
         destination_directory=directory,
         year=params.year,
         month_num=params.month_num,
