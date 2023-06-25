@@ -23,10 +23,6 @@ def upload_blob_from_memory(
 
     blob.upload_from_string(contents)
 
-    # print(
-    #     f"{destination_blob_name} with contents {contents} uploaded to {bucket_name}."
-    # )
-
     return blob
 
 
@@ -46,7 +42,5 @@ def upload_blob_from_file(
     blob = bucket.blob(destination_blob_name)
 
     blob.upload_from_filename(source_file_name)
-
-    # print(f"File {source_file_name} uploaded to {destination_blob_name}.")
 
     return blob
