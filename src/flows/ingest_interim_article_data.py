@@ -5,16 +5,17 @@ import pathlib
 
 import pyarrow
 from prefect import flow, get_run_logger, task
+from prefect_dask.task_runners import DaskTaskRunner
 from pyarrow import json
 
 from src.config import IngestInterimArticleDataParam
 from src.etl.extract import download_blob_to_file
 from src.etl.load import upload_blob_from_file, upload_blob_from_memory
-from src.utils import profile_data, rmtree
+from src.utils import create_range_of_year_months, profile_data, rmtree
 
 
 @task(
-    retries=0,
+    retries=3,
     retry_delay_seconds=3,
 )
 def download_raw_article_data_to_local_jsonl(
@@ -43,7 +44,7 @@ def download_raw_article_data_to_local_jsonl(
 
 
 @task(
-    retries=0,
+    retries=3,
     retry_delay_seconds=3,
 )
 def convert_local_jsonl_to_pyarrow_table(
@@ -149,42 +150,55 @@ def delete_local_temp_directory_and_files(directory: pathlib.Path):
             logger.info(f"Directory '{directory}' and all its files have been deleted")
 
 
-@flow
+@flow(task_runner=DaskTaskRunner())
 def ingest_interim_article_data(params: IngestInterimArticleDataParam):
+    logger = get_run_logger()
+
     directory = pathlib.Path.cwd() / "temp"
+    start_date = params.start_date
+    end_date = params.end_date
 
-    download_raw_article_data_to_local_jsonl(
-        bucket_name=params.raw_data_bucket_name,
-        destination_directory=directory,
-        year=params.year,
-        month_num=params.month_num,
-    )
+    year_months = create_range_of_year_months(start_date=start_date, end_date=end_date)
+    for i in year_months:
+        year = i[0]
+        month_num = i[1]
 
-    table = convert_local_jsonl_to_pyarrow_table(
-        source_directory=directory, year=params.year, month_num=params.month_num
-    )
+        try:
+            download_raw_article_data_to_local_jsonl(
+                bucket_name=params.raw_data_bucket_name,
+                destination_directory=directory,
+                year=year,
+                month_num=month_num,
+            )
 
-    if params.is_manual_ingestion:
-        profile_interim_article_data(
-            table=table,
-            source_directory=directory,
-            year=params.year,
-            month_num=params.month_num,
-        )
+            table = convert_local_jsonl_to_pyarrow_table(
+                source_directory=directory, year=year, month_num=month_num
+            )
 
-        upload_interim_article_data_profile(
-            destination_bucket_name=params.interim_data_profile_bucket_name,
-            source_directory=directory,
-            year=params.year,
-            month_num=params.month_num,
-        )
+            if params.is_manual_ingestion:
+                profile_interim_article_data(
+                    table=table,
+                    source_directory=directory,
+                    year=year,
+                    month_num=month_num,
+                )
 
-    upload_interim_article_data_to_blob_storage(
-        bucket_name=params.interim_data_bucket_name,
-        table=table,
-        year=params.year,
-        month_num=params.month_num,
-    )
+                upload_interim_article_data_profile(
+                    destination_bucket_name=params.interim_data_profile_bucket_name,
+                    source_directory=directory,
+                    year=year,
+                    month_num=month_num,
+                )
+
+            upload_interim_article_data_to_blob_storage(
+                bucket_name=params.interim_data_bucket_name,
+                table=table,
+                year=year,
+                month_num=month_num,
+            )
+
+        except Exception as e:
+            logger.error(f"An exception occured: {e}")
 
     delete_local_temp_directory_and_files(directory=directory)
 
