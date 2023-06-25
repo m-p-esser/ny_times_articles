@@ -1,15 +1,16 @@
 """ API to Google Cloud Storage """
 
-import json
+import datetime
 import pathlib
 
+import pandas as pd
 import requests
 from prefect import flow, get_run_logger, task
 from prefect.blocks.system import Secret
 
 from src.config import IngestRawArticleDataParams
 from src.etl.load import upload_blob_from_file
-from src.utils import convert_to_jsonl, rmtree
+from src.utils import convert_to_jsonl, create_range_of_year_months, rmtree
 
 
 @task(
@@ -117,38 +118,46 @@ def delete_local_temp_directory_and_files(directory: pathlib.Path):
 
 
 @flow
-def ingest_raw_article_data(params: IngestRawArticleDataParams):
+def ingest_raw_article_data(
+    params: IngestRawArticleDataParams,
+):
+    logger = get_run_logger()
+
     params = IngestRawArticleDataParams()
-    year = params.year
-    month_num = params.month_num
     api_version = params.api_version
     raw_data_bucket_name = params.raw_data_bucket_name
+    start_date = params.start_date
+    end_date = params.end_date
 
     api_key = Secret.load("ny-times-api-key").get()
-
     directory = pathlib.Path.cwd() / "temp"
 
-    try:
-        data = request_archive_api(
-            year=year, month_num=month_num, api_key=api_key, version=api_version
-        )
+    year_months = create_range_of_year_months(start_date=start_date, end_date=end_date)
+    for i in year_months:
+        year = i[0]
+        month_num = i[1]
 
-        directory = pathlib.Path.cwd() / "temp"
-        write_raw_article_data_to_local_jsonl(
-            data=data,
-            year=year,
-            destination_directory=directory,
-            month_num=month_num,
-        )
+        try:
+            data = request_archive_api(
+                year=year, month_num=month_num, api_key=api_key, version=api_version
+            )
 
-        upload_raw_article_data_to_blob_storage(
-            bucket_name=raw_data_bucket_name,
-            source_directory=directory,
-            year=year,
-            month_num=month_num,
-        )
-    except Exception as e:
-        print(f"An exception occured: {e}")
+            directory = pathlib.Path.cwd() / "temp"
+            write_raw_article_data_to_local_jsonl(
+                data=data,
+                year=year,
+                destination_directory=directory,
+                month_num=month_num,
+            )
+
+            upload_raw_article_data_to_blob_storage(
+                bucket_name=raw_data_bucket_name,
+                source_directory=directory,
+                year=year,
+                month_num=month_num,
+            )
+        except Exception as e:
+            logger.error(f"An exception occured: {e}")
 
     delete_local_temp_directory_and_files(directory=directory)
 
