@@ -1,19 +1,21 @@
 """ Create Pydantic Configuration models """
 
+import datetime
+
 from pydantic import BaseModel
 
 
 class IngestRawArticleDataParams(BaseModel):
-    year = 2019
-    month_num = 2
+    start_date = datetime.date(2000, 1, 1)
+    end_date = datetime.date(2023, 6, 30)
     api_version = 1
     raw_data_bucket_name = "raw_article_data"
     intial_ingestion = True
 
 
 class IngestInterimArticleDataParam(BaseModel):
-    year = 2019
-    month_num = 2
+    start_date = datetime.date(2000, 1, 1)
+    end_date = datetime.date(2023, 6, 30)
     raw_data_bucket_name = "raw_article_data"
     interim_data_bucket_name = "interim_article_data"
     interim_data_profile_bucket_name = "interim_article_data_profile"
